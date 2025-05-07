@@ -122,11 +122,16 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-#     "Item": {
-#         "on_update": "ksa_vat.doc_events.item.on_update"
-#     }
-# }
+doc_events = {
+    "Item": {
+        "before_insert": "ksa_vat.doc_events.item.on_update",
+        "on_update": "ksa_vat.doc_events.item.on_update"
+    }
+}
+
+doctype_js = {
+    "Item" : "public/js/item.js"
+}
 
 
 # Scheduled Tasks
