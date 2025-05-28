@@ -9,7 +9,7 @@ from frappe.utils import get_url_to_list
 
 
 def execute(filters=None):
-	columns = columns = get_columns()
+	columns = get_columns()
 	data = get_data(filters)
 	return columns, data
 
@@ -81,7 +81,6 @@ def get_data(filters):
 			total_tax,
 		) = get_tax_data_for_each_vat_setting(vat_setting, filters, "Sales Invoice")
 
-		# Adding results to data
 		append_data(
 			data,
 			vat_setting.title,
@@ -95,7 +94,6 @@ def get_data(filters):
 		grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
 		grand_total_tax += total_tax
 
-	# Sales Grand Total
 	append_data(
 		data,
 		"Grand Total",
@@ -105,7 +103,6 @@ def get_data(filters):
 		company_currency,
 	)
 
-	# Blank Line
 	append_data(data, "", "", "", "", company_currency)
 
 	# Purchase Heading
@@ -122,7 +119,6 @@ def get_data(filters):
 			total_tax,
 		) = get_tax_data_for_each_vat_setting(vat_setting, filters, "Purchase Invoice")
 
-		# Adding results to data
 		append_data(
 			data,
 			vat_setting.title,
@@ -136,7 +132,6 @@ def get_data(filters):
 		grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
 		grand_total_tax += total_tax
 
-	# Purchase Grand Total
 	append_data(
 		data,
 		"Grand Total",
@@ -150,18 +145,13 @@ def get_data(filters):
 
 
 def get_tax_data_for_each_vat_setting(vat_setting, filters, doctype):
-	"""
-	(KSA, {filters}, 'Sales Invoice') => 500, 153, 10 \n
-	calculates and returns \n
-	total_taxable_amount, total_taxable_adjustment_amount, total_tax"""
 	from_date = filters.get("from_date")
 	to_date = filters.get("to_date")
 
-	# Initiate variables
 	total_taxable_amount = 0
 	total_taxable_adjustment_amount = 0
 	total_tax = 0
-	# Fetch All Invoices
+
 	invoices = frappe.get_all(
 		doctype,
 		filters={"docstatus": 1, "posting_date": ["between", [from_date, to_date]]},
@@ -180,21 +170,18 @@ def get_tax_data_for_each_vat_setting(vat_setting, filters, doctype):
 		)
 
 		for item in invoice_items:
-			# Summing up total taxable amount
 			if invoice.is_return == 0:
 				total_taxable_amount += item.net_amount
-
-			if invoice.is_return == 1:
+			elif invoice.is_return == 1:
 				total_taxable_adjustment_amount += item.net_amount
 
-			# Summing up total tax
-			total_tax += get_tax_amount(item.item_code, vat_setting.account, doctype, invoice.name)
+		# Add tax once per invoice, per VAT account
+		total_tax += get_tax_amount(vat_setting.account, doctype, invoice.name)
 
 	return total_taxable_amount, total_taxable_adjustment_amount, total_tax
 
 
 def append_data(data, title, amount, adjustment_amount, vat_amount, company_currency):
-	"""Returns data with appended value."""
 	data.append(
 		{
 			"title": _(title),
@@ -206,25 +193,17 @@ def append_data(data, title, amount, adjustment_amount, vat_amount, company_curr
 	)
 
 
-def get_tax_amount(item_code, account_head, doctype, parent):
+def get_tax_amount(account_head, doctype, parent):
 	if doctype == "Sales Invoice":
 		tax_doctype = "Sales Taxes and Charges"
-
 	elif doctype == "Purchase Invoice":
 		tax_doctype = "Purchase Taxes and Charges"
 
-	item_wise_tax_detail = frappe.get_value(
+	# Get tax amount directly for the account head
+	tax_amount = frappe.db.get_value(
 		tax_doctype,
 		{"docstatus": 1, "parent": parent, "account_head": account_head},
-		"item_wise_tax_detail",
+		"tax_amount"
 	)
 
-	tax_amount = 0
-	if item_wise_tax_detail and len(item_wise_tax_detail) > 0:
-		item_wise_tax_detail = json.loads(item_wise_tax_detail)
-		for key, value in item_wise_tax_detail.items():
-			if key == item_code:
-				tax_amount = value[1]
-				break
-
-	return tax_amount
+	return tax_amount or 0
