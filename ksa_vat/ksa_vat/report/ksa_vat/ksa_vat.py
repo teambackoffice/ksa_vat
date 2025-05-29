@@ -2,7 +2,6 @@
 # For license information, please see license.txt
 
 import json
-
 import frappe
 from frappe import _
 from frappe.utils import get_url_to_list
@@ -159,6 +158,7 @@ def get_tax_data_for_each_vat_setting(vat_setting, filters, doctype):
 	)
 
 	for invoice in invoices:
+		# Fetch only items with the specific item_tax_template
 		invoice_items = frappe.get_all(
 			f"{doctype} Item",
 			filters={
@@ -169,13 +169,16 @@ def get_tax_data_for_each_vat_setting(vat_setting, filters, doctype):
 			fields=["item_code", "net_amount"],
 		)
 
+		if not invoice_items:
+			continue  # Skip this invoice if no matching item_tax_template
+
 		for item in invoice_items:
 			if invoice.is_return == 0:
 				total_taxable_amount += item.net_amount
 			elif invoice.is_return == 1:
 				total_taxable_adjustment_amount += item.net_amount
 
-		# Add tax once per invoice, per VAT account
+		# Add tax only if matching items exist
 		total_tax += get_tax_amount(vat_setting.account, doctype, invoice.name)
 
 	return total_taxable_amount, total_taxable_adjustment_amount, total_tax
@@ -199,7 +202,6 @@ def get_tax_amount(account_head, doctype, parent):
 	elif doctype == "Purchase Invoice":
 		tax_doctype = "Purchase Taxes and Charges"
 
-	# Get tax amount directly for the account head
 	tax_amount = frappe.db.get_value(
 		tax_doctype,
 		{"docstatus": 1, "parent": parent, "account_head": account_head},
