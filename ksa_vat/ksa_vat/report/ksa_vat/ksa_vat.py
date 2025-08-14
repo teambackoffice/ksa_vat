@@ -19,7 +19,7 @@ def get_columns():
 			"fieldname": "title",
 			"label": _("Title"),
 			"fieldtype": "Data",
-			"width": 300,
+			"width": 600,
 		},
 		{
 			"fieldname": "amount",
@@ -69,9 +69,9 @@ def get_data(filters):
 	# Sales Heading
 	append_data(data, "VAT on Sales", "", "", "", company_currency)
 
-	grand_total_taxable_amount = 0
-	grand_total_taxable_adjustment_amount = 0
-	grand_total_tax = 0
+	sales_grand_total_taxable_amount = 0
+	sales_grand_total_taxable_adjustment_amount = 0
+	sales_grand_total_tax = 0
 
 	for vat_setting in ksa_vat_setting.ksa_vat_sales_accounts:
 		(
@@ -89,16 +89,16 @@ def get_data(filters):
 			company_currency,
 		)
 
-		grand_total_taxable_amount += total_taxable_amount
-		grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
-		grand_total_tax += total_tax
+		sales_grand_total_taxable_amount += total_taxable_amount
+		sales_grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
+		sales_grand_total_tax += total_tax
 
 	append_data(
 		data,
 		"Grand Total",
-		grand_total_taxable_amount,
-		grand_total_taxable_adjustment_amount,
-		grand_total_tax,
+		sales_grand_total_taxable_amount,
+		sales_grand_total_taxable_adjustment_amount,
+		sales_grand_total_tax,
 		company_currency,
 	)
 
@@ -107,9 +107,9 @@ def get_data(filters):
 	# Purchase Heading
 	append_data(data, "VAT on Purchases", "", "", "", company_currency)
 
-	grand_total_taxable_amount = 0
-	grand_total_taxable_adjustment_amount = 0
-	grand_total_tax = 0
+	purchase_grand_total_taxable_amount = 0
+	purchase_grand_total_taxable_adjustment_amount = 0
+	purchase_grand_total_tax = 0
 
 	# Check if purchase accounts exist
 	if not ksa_vat_setting.ksa_vat_purchase_accounts:
@@ -138,18 +138,124 @@ def get_data(filters):
 				company_currency,
 			)
 
-			grand_total_taxable_amount += total_taxable_amount
-			grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
-			grand_total_tax += total_tax
+			purchase_grand_total_taxable_amount += total_taxable_amount
+			purchase_grand_total_taxable_adjustment_amount += total_taxable_adjustment_amount
+			purchase_grand_total_tax += total_tax
 
 	append_data(
 		data,
 		"Grand Total",
-		grand_total_taxable_amount,
-		grand_total_taxable_adjustment_amount,
-		grand_total_tax,
+		purchase_grand_total_taxable_amount,
+		purchase_grand_total_taxable_adjustment_amount,
+		purchase_grand_total_tax,
 		company_currency,
 	)
+
+	# Calculate and display Tax Payable Summary
+	append_data(data, "", "", "", "", company_currency)
+	append_data(data, "=" * 50, "", "", "", company_currency, True)
+	append_data(data, "TAX PAYABLE SUMMARY", "", "", "", company_currency, True, True)  # Make bold
+	append_data(data, "=" * 50, "", "", "", company_currency, True)
+
+	# Calculate net tax position
+	net_tax_position = sales_grand_total_tax - purchase_grand_total_tax
+	
+	# Display summary
+	append_data(
+		data,
+		"Total Output VAT (Sales)",
+		"",
+		"",
+		f"{sales_grand_total_tax}",
+		company_currency,
+		True,
+		True  # Bold title
+	)
+	
+	append_data(
+		data,
+		"Total Input VAT (Purchases)",
+		"",
+		"",
+		f"{purchase_grand_total_tax}",
+		company_currency,
+		True,
+		True  # Bold title
+	)
+	
+	append_data(data, "-" * 30, "", "", "", company_currency, True)
+	
+	# Determine tax status and display
+	if net_tax_position > 0:
+		status_text = "TAX PAYABLE TO GOVERNMENT"
+		append_data(
+			data,
+			status_text,
+			"",
+			"",
+			net_tax_position,
+			company_currency,
+			True,
+			True   # Bold title (no color to avoid interference)
+		)
+		append_data(
+			data,
+			"Status: You OWE tax to Saudi Government",
+			"",
+			"",
+			"",
+			company_currency,
+			True,
+			True,  # Bold
+			"red"  # Red color for status
+		)
+	elif net_tax_position < 0:
+		status_text = "TAX REFUND FROM GOVERNMENT"
+		append_data(
+			data,
+			status_text,
+			"",
+			"",
+			abs(net_tax_position),
+			company_currency,
+			True,
+			True   # Bold title (no color to avoid interference)
+		)
+		append_data(
+			data,
+			"Status: Government OWES you a refund",
+			"",
+			"",
+			"",
+			company_currency,
+			True,
+			True,  # Bold
+			"green"  # Green color for status
+		)
+	else:
+		append_data(
+			data,
+			"NET TAX POSITION",
+			"",
+			"",
+			0,
+			company_currency,
+			True,
+			True   # Bold title (no color to avoid interference)
+		)
+		append_data(
+			data,
+			"Status: No tax payable or refundable",
+			"",
+			"",
+			"",
+			company_currency,
+			True,
+			True,  # Bold
+			"blue"  # Blue color for status
+		)
+
+	append_data(data, "=" * 50, "", "", "", company_currency, True)
 
 	return data
 
@@ -229,16 +335,22 @@ def get_tax_data_for_each_vat_setting(vat_setting, filters, doctype):
 	return total_taxable_amount, total_taxable_adjustment_amount, total_tax
 
 
-def append_data(data, title, amount, adjustment_amount, vat_amount, company_currency):
-	data.append(
-		{
-			"title": _(title),
-			"amount": amount,
-			"adjustment_amount": adjustment_amount,
-			"vat_amount": vat_amount,
-			"currency": company_currency,
-		}
-	)
+def append_data(data, description, parent_account, tax_account, amount, company_currency, is_total_row=False, bold_title=False, color=None):
+	# Apply formatting to description
+	formatted_description = description
+	if bold_title:
+		formatted_description = f"<b>{description}</b>"
+	if color:
+		formatted_description = f"<span style='color: {color}'>{formatted_description}</span>"
+	
+	data.append({
+		"title": formatted_description,
+		"amount": parent_account,
+		"adjustment_amount": tax_account,
+		"vat_amount": amount,
+		"currency": company_currency,
+		"is_total_row": is_total_row
+	})
 
 
 def get_tax_amount(account_head, doctype, parent):
