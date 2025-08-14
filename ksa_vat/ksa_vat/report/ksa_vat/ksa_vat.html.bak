@@ -1,0 +1,64 @@
+{% if data %}
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        font-family: Arial, sans-serif;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: right;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .title-col {
+        text-align: left;
+        width: 50%;
+    }
+    .bold-row {
+        font-weight: bold;
+    }
+    .summary-header {
+        font-weight: bold;
+        background-color: #e7f3ff;
+        text-align: center;
+    }
+    .status-row {
+        background-color: #f9f9f9;
+    }
+    @media print {
+        table { page-break-inside: auto; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        /* Bold key VAT amounts in print view only */
+        .vat-amount-bold {
+            font-weight: bold !important;
+        }
+    }
+</style>
+
+<table>
+    <thead>
+        <tr>
+            <th class="title-col">Title</th>
+            <th>Amount (SAR)</th>
+            <th>Adjustment (SAR)</th>
+            <th>VAT Amount (SAR)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in data %}
+        <tr class="{% if 'Total' in row[0] or 'TAX PAYABLE' in row[0] %}bold-row{% endif %} {% if 'TAX PAYABLE SUMMARY' in row[0] %}summary-header{% endif %} {% if 'Status:' in row[0] %}status-row{% endif %}">
+            <td class="title-col">{{ row[0] | safe }}</td>
+            <td>{% if row[1] %}{% if 'Standard rated domestic purchases' in row[0] %}<span class="vat-amount-bold">{{ frappe.format_value(row[1], {"fieldtype": "Currency", "options": "Company:company:default_currency"}) }}</span>{% else %}{{ frappe.format_value(row[1], {"fieldtype": "Currency", "options": "Company:company:default_currency"}) }}{% endif %}{% endif %}</td>
+            <td>{% if row[2] %}{{ frappe.format_value(row[2], {"fieldtype": "Currency", "options": "Company:company:default_currency"}) }}{% endif %}</td>
+            <td>{% if row[3] %}{% if 'Total Output VAT' in row[0] or 'Total Input VAT' in row[0] or 'VAT Payable to Government' in row[0] or 'Standard rated domestic purchases' in row[0] %}<span class="vat-amount-bold">{{ frappe.format_value(row[3], {"fieldtype": "Currency", "options": "Company:company:default_currency"}) }}</span>{% else %}{{ frappe.format_value(row[3], {"fieldtype": "Currency", "options": "Company:company:default_currency"}) }}{% endif %}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endif %}

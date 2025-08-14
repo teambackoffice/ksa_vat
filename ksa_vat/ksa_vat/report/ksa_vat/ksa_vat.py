@@ -151,111 +151,62 @@ def get_data(filters):
 		company_currency,
 	)
 
-	# Calculate and display Tax Payable Summary
+	# Add Tax Payable Summary
 	append_data(data, "", "", "", "", company_currency)
-	append_data(data, "=" * 50, "", "", "", company_currency, True)
-	append_data(data, "TAX PAYABLE SUMMARY", "", "", "", company_currency, True, True)  # Make bold
-	append_data(data, "=" * 50, "", "", "", company_currency, True)
-
-	# Calculate net tax position
-	net_tax_position = sales_grand_total_tax - purchase_grand_total_tax
+	append_data(data, "TAX PAYABLE SUMMARY", "", "", "", company_currency)
+	append_data(data, "", "", "", "", company_currency)
 	
-	# Display summary
+	# Total Output VAT (Sales) - Bold title and amount
 	append_data(
 		data,
-		"Total Output VAT (Sales)",
+		"<b>Total Output VAT (Sales)</b>",
 		"",
 		"",
-		f"{sales_grand_total_tax}",
+		sales_grand_total_tax,
 		company_currency,
-		True,
-		True  # Bold title
 	)
 	
+	# Total Input VAT (Purchases) - Bold title and amount
 	append_data(
 		data,
-		"Total Input VAT (Purchases)",
+		"<b>Total Input VAT (Purchases)</b>",
 		"",
 		"",
-		f"{purchase_grand_total_tax}",
+		purchase_grand_total_tax,
 		company_currency,
-		True,
-		True  # Bold title
 	)
 	
-	append_data(data, "-" * 30, "", "", "", company_currency, True)
-	
-	# Determine tax status and display
-	if net_tax_position > 0:
-		status_text = "TAX PAYABLE TO GOVERNMENT"
-		append_data(
-			data,
-			status_text,
-			"",
-			"",
-			net_tax_position,
-			company_currency,
-			True,
-			True   # Bold title (no color to avoid interference)
-		)
-		append_data(
-			data,
-			"Status: You OWE tax to Saudi Government",
-			"",
-			"",
-			"",
-			company_currency,
-			True,
-			True,  # Bold
-			"red"  # Red color for status
-		)
-	elif net_tax_position < 0:
-		status_text = "TAX REFUND FROM GOVERNMENT"
-		append_data(
-			data,
-			status_text,
-			"",
-			"",
-			abs(net_tax_position),
-			company_currency,
-			True,
-			True   # Bold title (no color to avoid interference)
-		)
-		append_data(
-			data,
-			"Status: Government OWES you a refund",
-			"",
-			"",
-			"",
-			company_currency,
-			True,
-			True,  # Bold
-			"green"  # Green color for status
-		)
+	# Net VAT Position
+	net_vat = sales_grand_total_tax - purchase_grand_total_tax
+	if net_vat > 0:
+		status_text = "VAT Payable to Government"
+		colorized_status = "<span style='color: red'><b>Status: You OWE tax to Saudi Government</b></span>"
+	elif net_vat < 0:
+		status_text = "VAT Refund from Government"
+		colorized_status = "<span style='color: green'><b>Status: Saudi Government OWES you a refund</b></span>"
 	else:
-		append_data(
-			data,
-			"NET TAX POSITION",
-			"",
-			"",
-			0,
-			company_currency,
-			True,
-			True   # Bold title (no color to avoid interference)
-		)
-		append_data(
-			data,
-			"Status: No tax payable or refundable",
-			"",
-			"",
-			"",
-			company_currency,
-			True,
-			True,  # Bold
-			"blue"  # Blue color for status
-		)
-
-	append_data(data, "=" * 50, "", "", "", company_currency, True)
+		status_text = "No VAT Payable/Refundable"
+		colorized_status = "<span style='color: blue'><b>Status: No VAT payment required</b></span>"
+	
+	# Add the VAT amount row with bold amount - NO EMPTY ROW BEFORE
+	append_data(
+		data,
+		f"<b>{status_text}</b>",
+		"",
+		"",
+		abs(net_vat),
+		company_currency,
+	)
+		
+	# Add colorized status message at the BOTTOM - NO EMPTY ROW BEFORE
+	append_data(
+		data,
+		colorized_status,
+		"",
+		"",
+		"",
+		company_currency,
+	)
 
 	return data
 
@@ -335,16 +286,9 @@ def get_tax_data_for_each_vat_setting(vat_setting, filters, doctype):
 	return total_taxable_amount, total_taxable_adjustment_amount, total_tax
 
 
-def append_data(data, description, parent_account, tax_account, amount, company_currency, is_total_row=False, bold_title=False, color=None):
-	# Apply formatting to description
-	formatted_description = description
-	if bold_title:
-		formatted_description = f"<b>{description}</b>"
-	if color:
-		formatted_description = f"<span style='color: {color}'>{formatted_description}</span>"
-	
+def append_data(data, description, parent_account, tax_account, amount, company_currency, is_total_row=False):
 	data.append({
-		"title": formatted_description,
+		"title": description,
 		"amount": parent_account,
 		"adjustment_amount": tax_account,
 		"vat_amount": amount,
